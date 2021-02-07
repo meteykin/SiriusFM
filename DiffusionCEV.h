@@ -20,8 +20,8 @@ namespace SiriusFM
         explicit DiffusionCEV(double a_mu, double a_sigma, double a_beta)
         :   m_mu(a_mu), m_sigma(a_sigma), m_beta(a_beta)
         {
-            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma\n");
-            if (m_beta < 0) throw std::invalid_argument("non-positive beta\n");
+            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma in CEV\n");
+            if (m_beta < 0) throw std::invalid_argument("non-positive beta in CEV\n");
         }
     };
 }

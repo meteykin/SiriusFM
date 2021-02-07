@@ -21,7 +21,7 @@ namespace SiriusFM
         :   m_mu(a_mu), m_sigma0(a_sigma0), m_sigma1(a_sigma1), m_sigma2(a_sigma2)
         {
             if (m_sigma1 * m_sigma1 - 4 * m_sigma0 * m_sigma2 > 0)
-                throw std::invalid_argument("non-positive sigma\n");
+                throw std::invalid_argument("non-positive sigma in Lipton\n");
         }
     };
 }

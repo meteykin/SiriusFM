@@ -20,8 +20,8 @@ namespace SiriusFM
         explicit DiffusionCIR(double a_kappa, double a_theta, double a_sigma)
         :   m_kappa(a_kappa), m_theta(a_theta), m_sigma(a_sigma)
         {
-            if (m_theta <= 0) throw std::invalid_argument("non-positive theta\n");
-            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma\n");
+            if (m_theta <= 0) throw std::invalid_argument("non-positive theta in CIR\n");
+            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma in CIR\n");
         }
     };
 }

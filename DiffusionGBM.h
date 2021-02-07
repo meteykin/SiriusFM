@@ -20,7 +20,7 @@ namespace SiriusFM
         explicit DiffusionGBM(double a_mu, double a_sigma)
         : m_mu(a_mu), m_sigma(a_sigma)
         {
-            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma\n");
+            if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma in GBR\n");
         }
     };
 }
