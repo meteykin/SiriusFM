@@ -10,14 +10,15 @@ namespace SiriusFM
 {
     IRProvider <IRModeE::Const>::IRProvider (char const* a_file)
     {
+        memset(m_IRs, 0, sizeof(m_IRs));
         if (!a_file)
-            throw std::invalid_argument("empty filename");
+            //throw std::invalid_argument("empty filename");
+            return;
 
         FILE* fin;
         if (!(fin = fopen(a_file, "r")))
-            throw std::runtime_error("file not found");
-
-        memset(m_IRs, 0, sizeof(m_IRs));
+            //throw std::runtime_error("file not found");
+            return;
 
         char* line = nullptr;
         size_t len = 0;

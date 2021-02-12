@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdexcept>
 #include <cmath>
 #include <cstring>
@@ -7,6 +8,7 @@ namespace SiriusFM
 {
     enum class CcyE
     {
+        UNDEFINED = -1,
         USD = 0,
         EUR = 1,
         GBP = 2,
