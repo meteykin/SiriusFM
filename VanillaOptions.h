@@ -2,46 +2,84 @@
 
 #include <stdexcept>
 #include <cmath>
+#include <cassert>
 
 #include "Option.h"
 
 namespace SiriusFM
 {
-    class EurCallOption final: public Option
+    //=========================================================================//
+    // Generic European Call:                                                  //
+    //=========================================================================//
+    template<typename AssetClassA,  typename AssetClassB>
+    class EurCallOption final: public Option<AssetClassA, AssetClassB>
     {
-    private:
-        double const m_K;       //K > 0
+        double const m_K;
     public:
-        EurCallOption(double a_K, int a_Tdays)
-          : Option(0, a_Tdays), m_K(a_K)
+        EurCallOption
+        (
+          AssetClassA a_assetA,
+          AssetClassB a_assetB,
+          double      a_K,
+          time_t      a_expirTime
+        )
+        : Option<AssetClassA, AssetClassB>(a_assetA, a_assetB, a_expirTime, false),
+                                                    // IsAmerican=false
+          m_K(a_K)
         {
-            if (m_K <= 0) throw std::invalid_argument("non-positive m_K in EurCallOption\n");
+            if(a_K <= 0)
+                throw std::invalid_argument("a_K <= 0 in EurCallOption");
         }
+
         ~EurCallOption() override {}
-        double payoff(long a_l, double const* a_t, double const* a_S) const override
+
+        virtual double Payoff(long a_L,
+                    double const*  a_path,
+                    double const*  a_ts = nullptr) const override
         {
-            assert (a_l > 0 && a_S != nullptr);
-            double sT = a_S[a_l - 1];
-            return std::max<double>(sT - m_K, 0.0);
+            assert(a_L > 0 && a_path != nullptr);
+            return std::max<double>(a_path[a_L - 1] - m_K, 0);
         }
     };
 
-    class EurPutOption final: public Option
+    //=========================================================================//
+    // Generic European Put:                                                   //
+    //=========================================================================//
+    template<typename  AssetClassA,  typename AssetClassB>
+    class EurPutOption final: public Option<AssetClassA, AssetClassB>
     {
-    private:
-        double const m_K;       //K > 0
+        double const m_K;
+
     public:
-        EurPutOption(double a_K, int a_Tdays)
-          : Option(0, a_Tdays), m_K(a_K)
+        EurPutOption
+        (
+          AssetClassA a_assetA,
+          AssetClassB a_assetB,
+          double      a_K,
+          time_t      a_expirTime
+        )
+        : Option<AssetClassA, AssetClassB>(a_assetA, a_assetB, a_expirTime, false),
+                                                              // IsAmerican=false
+          m_K(a_K)
         {
-            if (m_K <= 0) throw std::invalid_argument("non-positive m_K in EurPutOption\n");
+          if(a_K <= 0)
+            throw std::invalid_argument("a_K <= 0 in EurPutOption");
         }
+
         ~EurPutOption() override {}
-        double payoff(long a_l, double const* a_t, double const* a_S) const override
+
+        virtual double Payoff(long a_L,
+                    double const*  a_path,
+                    double const*  a_ts = nullptr) const override
         {
-            assert (a_l > 0 && a_S != nullptr);
-            double sT = a_S[a_l - 1];
-            return std::max<double>(m_K - sT, 0.0);
+            assert(a_L > 0 && a_path != nullptr);
+            return std::max<double>(m_K - a_path[a_L - 1], 0);
         }
     };
+
+    //=========================================================================//
+    // Aliases:                                                                //
+    //=========================================================================//
+    using EurCallOptionFX = EurCallOption<CcyE, CcyE>;
+    using EurPutOptionFX  = EurPutOption <CcyE, CcyE>;
 }

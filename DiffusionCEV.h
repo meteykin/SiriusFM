@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdexcept>
 #include <cmath>
 
@@ -17,7 +18,8 @@ namespace SiriusFM
             return m_sigma * pow(a_S, m_beta);
         }
 
-        explicit DiffusionCEV(double a_mu, double a_sigma, double a_beta)
+        explicit DiffusionCEV(double a_mu, double a_sigma, double a_beta,
+          double a_s0)
         :   m_mu(a_mu), m_sigma(a_sigma), m_beta(a_beta), m_s0(a_s0)
         {
             if (m_sigma <= 0) throw std::invalid_argument("non-positive sigma in CEV\n");

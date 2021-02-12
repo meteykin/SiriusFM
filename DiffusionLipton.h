@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdexcept>
 #include <cmath>
 
@@ -17,7 +18,8 @@ namespace SiriusFM
             return m_sigma0 + m_sigma1 * a_S + m_sigma2 * a_S * a_S;
         }
 
-        explicit DiffusionLipton(double a_mu, double a_sigma0, double a_sigma1, double a_sigma2)
+        explicit DiffusionLipton(double a_mu, double a_sigma0, double a_sigma1,
+          double a_sigma2, double a_s0)
         :   m_mu(a_mu), m_sigma0(a_sigma0), m_sigma1(a_sigma1), m_sigma2(a_sigma2), m_s0(a_s0)
         {
             if (m_sigma1 * m_sigma1 - 4 * m_sigma0 * m_sigma2 > 0)

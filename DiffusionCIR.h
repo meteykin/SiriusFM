@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdexcept>
 #include <cmath>
 
@@ -17,7 +18,8 @@ namespace SiriusFM
             return sqrt(m_sigma) * a_S;
         }
 
-        explicit DiffusionCIR(double a_kappa, double a_theta, double a_sigma)
+        explicit DiffusionCIR(double a_kappa, double a_theta, double a_sigma,
+          double a_s0)
         :   m_kappa(a_kappa), m_theta(a_theta), m_sigma(a_sigma), m_s0(a_s0)
         {
             if (m_theta <= 0) throw std::invalid_argument("non-positive theta in CIR\n");

@@ -4,9 +4,6 @@
 #include <cassert>
 
 #include "MCEngine1D.h"
-#include "Time.h"
-
-#define EPS 1e-10
 
 namespace SiriusFM
 {
@@ -14,80 +11,141 @@ namespace SiriusFM
               class AProvider,
               class BProvider,
               class AssetClassA,
-              class AssetClassB>
+              class AssetClassB,
+              class PathEvaluator>
     template <bool IsRN>
     inline void MCEngine1D <Diffusion1D,
                             AProvider,
                             BProvider,
                             AssetClassA,
-                            AssetClassB>
-    ::Simulate (time_t a_t0,
-                time_t a_T,
-                int a_tau_min,
-                long a_P,
-                Diffusion1D const* a_diff,
-                AProvider const* a_rateA,
-                BProvider const* a_rateB,
-                AssetClassA a_A,
-                AssetClassB a_B)
+                            AssetClassB,
+                            PathEvaluator>
+    ::Simulate (time_t              a_t0,
+            	  time_t              a_T,
+            		int                 a_tauMins,
+            		long                a_P,
+                bool                a_useTimerSeed,
+            		Diffusion1D const*  a_diff,
+            		AProvider const*    a_rateA,
+            		BProvider const*    a_rateB,
+            		AssetClassA         a_assetA,
+            		AssetClassB         a_assetB,
+                PathEvaluator*      a_pathEval)
     {
-        assert(a_diff && a_rateA && a_rateB && (a_t0 <= a_T) && a_P > 0
-        && a_tau_min > 0 && a_A != AssetClassA::UNDEFINED && a_B != AssetClassB::UNDEFINED);
+        assert(a_diff != nullptr &&
+               a_rateA != nullptr &&
+               a_rateB != nullptr &&
+               a_P > 0 &&
+               a_assetA != AssetClassA::UNDEFINED  &&
+               a_assetB != AssetClassB::UNDEFINED  &&
+               a_t0 <= a_T   && a_tauMins > 0 &&
+               a_pathEval != nullptr);
 
-        double tau = a_tau_min / (365.25 * 1440);
+        double y0 = YearFrac(a_t0);
+       	time_t T_sec = a_T - a_t0;
+       	time_t tau_sec = a_tauMins * SEC_IN_MIN;
+       	long L_segm = (T_sec % tau_sec == 0) ? T_sec / tau_sec
+       											 : T_sec / tau_sec + 1;
+       	double tau = YearFracInt(tau_sec);
+       	long L = L_segm + 1;
+       	long P = 2 * a_P;
 
-        long L = (a_T - a_t0) / (a_tau_min * 60) + (long)((a_T - a_t0) % (a_tau_min * 60) != 0) + 1;
-        long P = 2 * a_P;
+       	if(L > m_MaxL)
+       			throw std::invalid_argument("Too many steps");
 
-        if (L * P > m_MaxL * m_MaxP)
+       	double stau = sqrt(tau);
+       	double tlast = (T_sec % tau_sec == 0)
+       				   ? tau
+       				   : YearFracInt(T_sec - (L - 1) * tau_sec);
+       	assert(tlast <= tau && tlast > 0);
+       	double slast = sqrt(tlast);
+       	assert(slast <= stau && slast > 0);
+
+         // Construct the TimeLine:
+         for (long l = 0; l < L-1; ++l)
+         m_ts[l] = y0 + double(l) * tau;
+         m_ts[L-1] = m_ts[L-2] + tlast;
+
+       	std::normal_distribution<> N01(0.0, 1.0);
+       	std::mt19937_64 U(a_useTimerSeed ? time(nullptr) : 0);
+
+        // PM: how many paths we can store in-memory:
+        long PM = (m_MaxL * m_MaxPM) / L;
+        if (PM % 2 != 0)
+         --PM;
+        assert(PM > 0 && PM % 2 == 0);
+
+        long PMh = PM / 2;
+
+        // PI: Number of outer P iterations:
+        long PI = (P % PM == 0) ? (P / PM) : (P / PM + 1);
+
+        // Now actual P = PI * PM;
+
+       	// Main simulation loop:
+        for (long i = 0; i < PI; ++i)
         {
-            throw std::invalid_argument("L * P > m_MaxL * m_MaxP");
+            // Generate in-memory paths:
+            for(long p = 0; p < PMh; ++p)
+       	    {
+       	        double * path0 = m_paths + 2 * p * L;
+       	        double * path1 = path0   + L;
+
+        			  path0[0] = a_diff->s0();
+          		  path1[0] = a_diff->s0();
+
+         			  double Sp0 = a_diff->s0();
+        	  		double Sp1 = a_diff->s0();
+
+         			  for(long l = 1; l < L; ++l)
+         			  {
+         				      //Compute the Trend
+                    double mu0 = 0;
+         				    double mu1 = 0;
+                    double y   = m_ts[l-1]; // "l" is NEXT point
+
+             				if(IsRN) //Risk-neutral case
+             				{
+               				  double delta_r = a_rateB->r(a_assetB, y) -
+                                         a_rateA->r(a_assetA, y);
+
+               				  mu0 = delta_r * Sp0;
+               				  mu1 = delta_r * Sp1;
+             				}
+             				else
+             				{
+               				  mu0 = a_diff->mu(Sp0, y);
+               				  mu1 = a_diff->mu(Sp1, y);
+             				}
+
+             				double sigma0 = a_diff->sigma(Sp0, y); //apply chages to
+             				double sigma1 = a_diff->sigma(Sp1, y); //all diffusions!
+
+         				    double Z = N01(U);
+             				double Sn0 = 0;
+             				double Sn1 = 0;
+             				if(l == L - 1)
+             				{
+               				  Sn0 = Sp0 + mu0 * tlast + sigma0 * Z * slast;
+               				  Sn1 = Sp1 + mu1 * tlast - sigma1 * Z * slast;
+             				}
+             				 else
+             				{
+               				  Sn0 = Sp0 + mu0 * tau + sigma0 * Z * stau;
+               				  Sn1 = Sp1 + mu1 * tau - sigma1 * Z * stau;
+             				}
+             				path0[l] = Sn0;
+             				path1[l] = Sn1;
+
+           				  Sp0 = Sn0;
+           				  Sp1 = Sn1;
+     			      }
+       			    //End of l loop
+       		  }
+            // End of p loop
+            // Evaluate the in-memory paths:
+            (*a_pathEval)(L, PM, m_paths, m_ts);
         }
-
-        if (L > m_MaxL)
-        {
-            throw std::invalid_argument("L > m_MaxL");
-        }
-
-        std::random_device rd{};
-        std::mt19937_64 u{rd()};
-        std::normal_distribution<> n01{0, 1};
-
-        double stau = std::sqrt(tau);
-        double tlast = YearFrac(a_T) - YearFrac(a_t0) - tau * (L - 2);
-        double slast = std::sqrt(tlast);
-
-        *m_ts = YearFrac(a_t0);
-
-        for (long l = 1; l < L; ++l)
-        {
-            *(m_ts + l) = *(m_ts + l - 1) + (l == L - 1 ? tlast : tau);
-        }
-
-        assert(tlast <= tau + EPS && tlast > 0);
-
-        for (long p = 0; p < a_P; ++p)
-        {
-            double* path0 = m_paths + (p << 1) * L;
-            double* path1 = path0 + L;
-            *path1 = *path0 = a_diff->s0();
-
-            double y = YearFrac(a_t0), sp0 = a_diff->s0(), sp1 = a_diff->s0();
-            for (long l = 1; l < L; ++l)
-            {
-                double delta = a_rateB->r(a_B, y) - a_rateA->r(a_A, y);
-                double mu0 = IsRN ? delta * sp0 : a_diff->mu(sp0, y);
-                double mu1 = IsRN ? delta * sp1 : a_diff->mu(sp1, y);
-
-                double inc = n01(u) * (l == L - 1 ? slast : stau);
-                double incTime = l == L - 1 ? tlast : tau;
-
-                sp0 = path0[l] = sp0 + mu0 * incTime + inc * a_diff->sigma(sp0, y);
-                sp1 = path1[l] = sp1 + mu1 * incTime - inc * a_diff->sigma(sp1, y);
-                y += l == L - 2 ? tlast : tau;
-            }
-        }
-        m_L = L;
-        m_P = P;
+        // End of i loop
     }
 }
